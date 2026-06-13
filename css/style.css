@@ -1,0 +1,303 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --left-arrow-x: 24px;
+  --right-arrow-x: calc(100vw - 24px);
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: Arial, sans-serif;
+}
+
+/* Full viewer */
+.viewer {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+
+  background-image:
+    url("../assets/background.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Top bar */
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 5;
+
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 28px;
+
+  color: #111;
+}
+
+.magazine-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.page-counter {
+  font-size: 18px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/*
+  Main book area:
+  This area is explicitly between the top bar and bottom icons.
+*/
+.book-area {
+  position: absolute;
+  z-index: 2;
+
+  top: 58px;
+  left: 0;
+  right: 0;
+  bottom: 78px;
+
+  width: 100%;
+  height: auto;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Book container */
+.book-shell {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: visible;
+
+  --book-shift-x: 0px;
+
+  transform: translateX(var(--book-shift-x));
+  transform-origin: center center;
+  transition: transform 0.25s ease;
+}
+
+/* Flipbook */
+#book {
+  margin: auto;
+
+  --visual-zoom: 1;
+  --visual-pan-x: 0px;
+  --visual-pan-y: 0px;
+
+  transform:
+    translate3d(var(--visual-pan-x), var(--visual-pan-y), 0)
+    scale(var(--visual-zoom));
+
+  transform-origin: center center;
+  transition: transform 80ms linear;
+  will-change: transform;
+}
+
+/* Cursor becomes grab hand when zoomed */
+#book.zoom-pan {
+  cursor: grab;
+  touch-action: none;
+}
+
+#book.zoom-pan * {
+  cursor: grab;
+}
+
+/* Cursor becomes grabbing while dragging */
+#book.is-panning {
+  cursor: grabbing;
+  transition: none;
+}
+
+#book.is-panning * {
+  cursor: grabbing;
+}
+
+.page {
+  background: white;
+  overflow: hidden;
+}
+
+.page img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Side arrows */
+.side-arrow {
+  position: absolute;
+  top: 50%;
+
+  z-index: 8;
+
+  width: 54px;
+  height: 70px;
+
+  border: none;
+  background: transparent;
+  color: rgb(252, 251, 251);
+
+  font-size: 72px;
+  line-height: 1;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.left-arrow {
+  left: clamp(24px, var(--left-arrow-x), calc(100vw - 90px));
+  transform: translate(-50%, -50%);
+}
+
+.right-arrow {
+  left: clamp(90px, var(--right-arrow-x), calc(100vw - 24px));
+  transform: translate(-50%, -50%);
+}
+
+.side-arrow:hover {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* Bottom controls */
+.bottom-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+
+  z-index: 30;
+
+  display: flex;
+  align-items: center;
+  gap: 26px;
+
+  padding: 8px 20px;
+  border-radius: 30px;
+
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  background: transparent;
+  color: white;
+
+  font-size: 24px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.icon-btn:hover {
+  transform: scale(1.08);
+}
+
+/* Mobile: one-page flipbook */
+@media (max-width: 768px) {
+  html,
+  body,
+  .viewer {
+    height: 100dvh;
+  }
+
+  .top-bar {
+    height: 52px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .magazine-title,
+  .page-counter {
+    font-size: 14px;
+  }
+
+  .book-area {
+    top: 58px;
+    bottom: 78px;
+
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .book-shell {
+    width: 100vw;
+    height: 100%;
+
+    align-items: flex-start;
+    justify-content: center;
+
+    --book-shift-x: 0px;
+    transform: translateX(0);
+  }
+
+  .left-arrow {
+    left: 24px;
+  }
+
+  .right-arrow {
+    left: calc(100vw - 24px);
+  }
+
+  .side-arrow {
+    top: 48%;
+    width: 42px;
+    height: 58px;
+    font-size: 54px;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+
+  .bottom-controls {
+    bottom: 16px;
+    gap: 18px;
+    padding: 7px 16px;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 21px;
+  }
+}

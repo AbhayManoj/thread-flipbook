@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Thread Flipbook</title>
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Flipbook Library -->
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+</head>
+
+<body>
+
+  <div class="viewer">
+
+    <!-- Top bar -->
+    <header class="top-bar">
+      <div class="magazine-title">Thread</div>
+      <div class="page-counter" id="pageCounter">page 1 of 28</div>
+    </header>
+
+    <!-- Main flipbook area -->
+    <main class="book-area">
+
+      <button class="side-arrow left-arrow" id="prevBtn" aria-label="Previous page">
+        ‹
+      </button>
+
+      <div class="book-shell" id="bookShell">
+        <div id="book"></div>
+      </div>
+
+      <button class="side-arrow right-arrow" id="nextBtn" aria-label="Next page">
+        ›
+      </button>
+
+    </main>
+
+    <!-- Bottom icon controls -->
+    <div class="bottom-controls">
+      <button class="icon-btn" id="soundBtn" title="Sound placeholder">
+        🔊
+      </button>
+
+      <button class="icon-btn" id="zoomBtn" title="Zoom">
+        🔍
+      </button>
+
+      <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
+        ⛶
+      </button>
+    </div>
+
+  </div>
+
+  <script src="js/script.js"></script>
+
+</body>
+</html>
