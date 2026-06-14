@@ -37,13 +37,6 @@ let resizeTimer = null;
 
 /*
   Smooth visual zoom.
-  Desktop fullscreen:
-  - trackpad pinch zoom
-  - drag/pan when zoomed
-
-  Mobile:
-  - two-finger pinch zoom
-  - one-finger drag/pan when zoomed
 */
 let visualZoom = 1;
 let zoomPanX = 0;
@@ -62,6 +55,7 @@ let lastPanClientY = 0;
 let isMobilePinching = false;
 let initialPinchDistance = 0;
 let initialPinchZoom = 1;
+let mobileGestureStartedOnBook = false;
 
 function isMobileView() {
   return window.matchMedia("(max-width: 768px)").matches;
@@ -97,10 +91,6 @@ function getLayoutScale() {
   let scale = 1;
 
   if (isMobile) {
-    /*
-      Mobile:
-      One page only. Keep it inside the area above the icons.
-    */
     const availableWidth = window.innerWidth - 42;
     const availableHeight = window.innerHeight - 150;
 
@@ -112,11 +102,6 @@ function getLayoutScale() {
     scale = Math.min(scale, 1.05);
     scale = Math.max(scale, 0.55);
   } else if (isFullscreen) {
-    /*
-      Desktop fullscreen:
-      Large two-page spread, ratio preserved.
-      Smooth pinch zoom is handled visually after this base size.
-    */
     const availableWidth = window.innerWidth - 90;
     const availableHeight = window.innerHeight - 135;
 
@@ -128,11 +113,6 @@ function getLayoutScale() {
     scale = Math.min(scale, 2.2);
     scale = Math.max(scale, 1);
   } else {
-    /*
-      Desktop normal/resized:
-      Book shrinks when browser height becomes smaller,
-      so bottom icons remain below the book.
-    */
     const availableWidth = window.innerWidth - 110;
     const availableHeight = window.innerHeight - 145;
 
@@ -216,11 +196,6 @@ function buildFlipbook(targetPageIndex = 0) {
   pageFlip = new St.PageFlip(bookElement, {
     width: currentPageWidth,
     height: currentPageHeight,
-
-    /*
-      Fixed size keeps cursor/fold math accurate.
-      Do not use CSS transform scale for the base book size.
-    */
     size: "fixed",
 
     /*
@@ -234,8 +209,8 @@ function buildFlipbook(targetPageIndex = 0) {
     usePortrait: isMobile,
 
     /*
-      Keep native PageFlip interaction enabled.
-      This preserves the real curl/roll animation.
+      Keep native PageFlip enabled.
+      Strong document-level touch capture below handles mobile pinch.
     */
     useMouseEvents: true,
 
@@ -310,9 +285,6 @@ function syncBookLayout() {
 
   bookShell.style.setProperty("--book-shift-x", `${bookShiftX}px`);
 
-  /*
-    Mobile arrows stay near the screen edges.
-  */
   if (isMobile) {
     document.documentElement.style.setProperty("--left-arrow-x", "24px");
     document.documentElement.style.setProperty(
@@ -322,10 +294,6 @@ function syncBookLayout() {
     return;
   }
 
-  /*
-    Desktop arrows sit outside the visible book.
-    When visually zoomed, arrows also move outside the zoomed book.
-  */
   const viewerCenterX = window.innerWidth / 2 + zoomPanX;
 
   const visibleBookWidth = isDesktopSpread
@@ -366,10 +334,6 @@ function clampZoomPan() {
   const visibleBookWidth = getVisibleBookWidth() * visualZoom;
   const visibleBookHeight = currentPageHeight * visualZoom;
 
-  /*
-    Keep panning within a controlled range.
-    A small extra allowance makes the zoom feel less restrictive.
-  */
   const maxPanX = Math.max(0, (visibleBookWidth - window.innerWidth) / 2 + 160);
   const maxPanY = Math.max(0, (visibleBookHeight - window.innerHeight) / 2 + 160);
 
@@ -386,9 +350,6 @@ function applyVisualZoom() {
   bookElement.style.setProperty("--visual-pan-x", `${zoomPanX}px`);
   bookElement.style.setProperty("--visual-pan-y", `${zoomPanY}px`);
 
-  /*
-    Desktop fullscreen OR mobile zoomed mode should show grab behavior.
-  */
   if (visualZoom > 1.01 && (document.fullscreenElement || isMobileView())) {
     bookElement.classList.add("zoom-pan");
   } else {
@@ -476,6 +437,23 @@ function stopMobilePinch() {
   }
 }
 
+function stopMobileTouchEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
+}
+
+function didTouchStartInsideBook(event) {
+  return !!(
+    event.target &&
+    event.target.closest &&
+    event.target.closest("#book")
+  );
+}
+
 /* Previous page */
 prevBtn.addEventListener("click", () => {
   if (pageFlip) {
@@ -535,6 +513,7 @@ document.addEventListener("fullscreenchange", () => {
     visualZoom = 1;
     zoomPanX = 0;
     zoomPanY = 0;
+    mobileGestureStartedOnBook = false;
     stopZoomPan();
   }
 
@@ -544,9 +523,7 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 /*
-  Desktop smooth trackpad pinch zoom:
-  Trackpad pinch usually fires wheel + ctrlKey in desktop browsers.
-  Zoom happens around the pointer location.
+  Desktop smooth trackpad pinch zoom.
 */
 document.addEventListener(
   "wheel",
@@ -557,10 +534,6 @@ document.addEventListener(
 
     event.preventDefault();
 
-    /*
-      Exponential zoom factor feels smoother than fixed step zoom.
-      Negative deltaY = zoom in. Positive deltaY = zoom out.
-    */
     const zoomFactor = Math.exp(-event.deltaY * 0.002);
 
     zoomAtPoint(event.clientX, event.clientY, zoomFactor);
@@ -570,7 +543,6 @@ document.addEventListener(
 
 /*
   Desktop drag/pan the zoomed book.
-  When zoomed in, dragging the book moves it around instead of flipping pages.
 */
 bookShell.addEventListener(
   "pointerdown",
@@ -627,26 +599,24 @@ document.addEventListener("pointerup", stopZoomPan);
 document.addEventListener("pointercancel", stopZoomPan);
 
 /*
-  Mobile pinch zoom and pan.
-  Normal mobile mode:
-  - 1 finger = PageFlip handles page turn
-
-  Zoomed mobile mode:
-  - 2 fingers = pinch zoom
-  - 1 finger = pan/move around zoomed page
+  Strong mobile pinch zoom and pan.
+  This listens on document in capture mode so it catches pinch gestures
+  before PageFlip treats them as page flips.
 */
-bookShell.addEventListener(
+document.addEventListener(
   "touchstart",
   (event) => {
     if (!isMobileView()) return;
 
-    const touchedInsideBook = event.target.closest("#book");
-    if (!touchedInsideBook) return;
+    const touchedInsideBook = didTouchStartInsideBook(event);
 
-    if (event.touches.length === 2) {
-      event.preventDefault();
-      event.stopPropagation();
+    /*
+      Two-finger touch should always zoom, never flip.
+    */
+    if (event.touches.length >= 2 && touchedInsideBook) {
+      stopMobileTouchEvent(event);
 
+      mobileGestureStartedOnBook = true;
       isMobilePinching = true;
       isPanningZoomedBook = false;
 
@@ -660,28 +630,52 @@ bookShell.addEventListener(
       return;
     }
 
-    if (event.touches.length === 1 && isZoomPanActive()) {
-      event.preventDefault();
-      event.stopPropagation();
+    /*
+      When zoomed in, one-finger touch should pan, not flip.
+    */
+    if (event.touches.length === 1 && touchedInsideBook && isZoomPanActive()) {
+      stopMobileTouchEvent(event);
 
+      mobileGestureStartedOnBook = true;
       isPanningZoomedBook = true;
+
       lastPanClientX = event.touches[0].clientX;
       lastPanClientY = event.touches[0].clientY;
 
-      bookElement.classList.add("is-panning");
+      if (bookElement) {
+        bookElement.classList.add("is-panning");
+      }
     }
   },
   { passive: false, capture: true }
 );
 
-bookShell.addEventListener(
+document.addEventListener(
   "touchmove",
   (event) => {
     if (!isMobileView()) return;
 
-    if (isMobilePinching && event.touches.length === 2) {
-      event.preventDefault();
-      event.stopPropagation();
+    /*
+      If the gesture started on the book and now has 2 fingers,
+      force it to be pinch zoom.
+    */
+    if (
+      (mobileGestureStartedOnBook || didTouchStartInsideBook(event)) &&
+      event.touches.length >= 2
+    ) {
+      stopMobileTouchEvent(event);
+
+      if (!isMobilePinching) {
+        isMobilePinching = true;
+        isPanningZoomedBook = false;
+
+        initialPinchDistance = getTouchDistance(event.touches);
+        initialPinchZoom = visualZoom;
+
+        if (bookElement) {
+          bookElement.classList.remove("is-panning");
+        }
+      }
 
       const currentDistance = getTouchDistance(event.touches);
       const center = getTouchCenter(event.touches);
@@ -695,9 +689,11 @@ bookShell.addEventListener(
       return;
     }
 
+    /*
+      If zoomed in, one-finger movement should pan.
+    */
     if (isPanningZoomedBook && event.touches.length === 1 && isZoomPanActive()) {
-      event.preventDefault();
-      event.stopPropagation();
+      stopMobileTouchEvent(event);
 
       const touch = event.touches[0];
 
@@ -716,37 +712,53 @@ bookShell.addEventListener(
   { passive: false, capture: true }
 );
 
-bookShell.addEventListener(
+document.addEventListener(
   "touchend",
   (event) => {
     if (!isMobileView()) return;
+
+    if (mobileGestureStartedOnBook || isMobilePinching || isPanningZoomedBook) {
+      stopMobileTouchEvent(event);
+    }
 
     if (isMobilePinching && event.touches.length < 2) {
       stopMobilePinch();
     }
 
     if (event.touches.length === 0) {
+      mobileGestureStartedOnBook = false;
       stopZoomPan();
     }
 
     /*
-      If pinch ends with one finger still touching and zoom is active,
-      allow that remaining finger to continue panning.
+      If pinch ends with one finger still on screen and zoom is active,
+      continue panning with that remaining finger.
     */
     if (event.touches.length === 1 && isZoomPanActive()) {
+      mobileGestureStartedOnBook = true;
       isPanningZoomedBook = true;
+
       lastPanClientX = event.touches[0].clientX;
       lastPanClientY = event.touches[0].clientY;
 
-      bookElement.classList.add("is-panning");
+      if (bookElement) {
+        bookElement.classList.add("is-panning");
+      }
     }
   },
   { passive: false, capture: true }
 );
 
-bookShell.addEventListener(
+document.addEventListener(
   "touchcancel",
-  () => {
+  (event) => {
+    if (!isMobileView()) return;
+
+    if (mobileGestureStartedOnBook || isMobilePinching || isPanningZoomedBook) {
+      stopMobileTouchEvent(event);
+    }
+
+    mobileGestureStartedOnBook = false;
     stopMobilePinch();
     stopZoomPan();
   },
@@ -763,6 +775,7 @@ window.addEventListener("resize", () => {
     visualZoom = 1;
     zoomPanX = 0;
     zoomPanY = 0;
+    mobileGestureStartedOnBook = false;
     stopZoomPan();
     stopMobilePinch();
 
@@ -770,12 +783,7 @@ window.addEventListener("resize", () => {
   }, 300);
 });
 
-
 function getDriverFunction() {
-  /*
-    Driver.js CDN exposes the function under window.driver.js.driver.
-    This fallback keeps it safer if the global changes slightly.
-  */
   if (window.driver && window.driver.js && window.driver.js.driver) {
     return window.driver.js.driver;
   }

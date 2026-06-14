@@ -119,12 +119,18 @@ body {
   transform-origin: center center;
   transition: transform 80ms linear;
   will-change: transform;
+
+  /*
+    Important mobile fix:
+    Prevent browser/native gestures from competing with our custom
+    pinch zoom handling.
+  */
+  touch-action: none;
 }
 
 /* Cursor becomes grab hand when zoomed */
 #book.zoom-pan {
   cursor: grab;
-  touch-action: none;
 }
 
 #book.zoom-pan * {
@@ -151,6 +157,9 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
+
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Side arrows */
