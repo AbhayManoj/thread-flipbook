@@ -770,6 +770,147 @@ window.addEventListener("resize", () => {
   }, 300);
 });
 
+
+function getDriverFunction() {
+  /*
+    Driver.js CDN exposes the function under window.driver.js.driver.
+    This fallback keeps it safer if the global changes slightly.
+  */
+  if (window.driver && window.driver.js && window.driver.js.driver) {
+    return window.driver.js.driver;
+  }
+
+  if (window.driver && window.driver.driver) {
+    return window.driver.driver;
+  }
+
+  if (typeof window.driver === "function") {
+    return window.driver;
+  }
+
+  return null;
+}
+
+function startUserTour() {
+  const driverFunction = getDriverFunction();
+
+  if (!driverFunction) {
+    console.warn("Driver.js was not loaded.");
+    return;
+  }
+
+  const driverObj = driverFunction({
+    showProgress: true,
+    animate: true,
+    overlayOpacity: 0.62,
+    smoothScroll: false,
+    allowClose: true,
+    stagePadding: 8,
+    stageRadius: 12,
+    nextBtnText: "Next",
+    prevBtnText: "Back",
+    doneBtnText: "Done",
+    steps: [
+      {
+        element: "#tourTitle",
+        popover: {
+          title: "Welcome to Thread",
+          description: "This is your interactive magazine viewer. You can flip pages, zoom in, enable sound, and open fullscreen mode.",
+          side: "bottom",
+          align: "start"
+        }
+      },
+      {
+        element: "#pageCounter",
+        popover: {
+          title: "Page Counter",
+          description: "This shows which page or page spread you are currently viewing.",
+          side: "bottom",
+          align: "start"
+        }
+      },
+      {
+        element: "#prevBtn",
+        popover: {
+          title: "Previous Page",
+          description: "Use this arrow to go back to the previous page.",
+          side: "right",
+          align: "center"
+        }
+      },
+      {
+        element: "#nextBtn",
+        popover: {
+          title: "Next Page",
+          description: "Use this arrow to move forward through the magazine.",
+          side: "left",
+          align: "center"
+        }
+      },
+      {
+        element: "#soundBtn",
+        popover: {
+          title: "Sound Toggle",
+          description: "Turn the page-flip sound on or off.",
+          side: "top",
+          align: "center"
+        }
+      },
+      {
+        element: "#zoomBtn",
+        popover: {
+          title: "Zoom",
+          description: "Use this to zoom in. On desktop fullscreen, you can also pinch with the trackpad. On mobile, use two fingers to pinch zoom.",
+          side: "top",
+          align: "center"
+        }
+      },
+      {
+        element: "#fullscreenBtn",
+        popover: {
+          title: "Fullscreen",
+          description: "Open the magazine in fullscreen mode for a cleaner reading experience.",
+          side: "top",
+          align: "center"
+        }
+      },
+      {
+        element: "#tourBtn",
+        popover: {
+          title: "Guide",
+          description: "You can click this button anytime to replay this quick guide.",
+          side: "top",
+          align: "center"
+        }
+      }
+    ]
+  });
+
+  driverObj.drive();
+}
+
+const tourBtn = document.getElementById("tourBtn");
+
+if (tourBtn) {
+  tourBtn.addEventListener("click", () => {
+    startUserTour();
+  });
+}
+
+/*
+  Auto-start the tour only once for each visitor.
+*/
+window.addEventListener("load", () => {
+  const hasSeenTour = localStorage.getItem("threadFlipbookTourSeen");
+
+  if (!hasSeenTour) {
+    setTimeout(() => {
+      startUserTour();
+      localStorage.setItem("threadFlipbookTourSeen", "true");
+    }, 900);
+  }
+});
+
 /* Initial setup */
 buildFlipbook(0);
 updateSoundButton();
