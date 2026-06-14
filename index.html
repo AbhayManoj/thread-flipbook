@@ -8,8 +8,14 @@
 
   <link rel="stylesheet" href="css/style.css" />
 
+  <!-- Driver.js Onboarding Library -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.css" />
+
   <!-- Flipbook Library -->
   <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+
+  <!-- Driver.js Onboarding Library -->
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@latest/dist/driver.js.iife.js"></script>
 </head>
 
 <body>
@@ -18,7 +24,7 @@
 
     <!-- Top bar -->
     <header class="top-bar">
-      <div class="magazine-title">Thread</div>
+      <div class="magazine-title" id="tourTitle">Thread</div>
       <div class="page-counter" id="pageCounter">page 1 of 28</div>
     </header>
 
@@ -41,7 +47,7 @@
 
     <!-- Bottom icon controls -->
     <div class="bottom-controls">
-      <button class="icon-btn" id="soundBtn" title="Sound placeholder">
+      <button class="icon-btn" id="soundBtn" title="Sound">
         🔊
       </button>
 
@@ -51,6 +57,10 @@
 
       <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
         ⛶
+      </button>
+
+      <button class="icon-btn tour-btn" id="tourBtn" title="Guide">
+        ?
       </button>
     </div>
 

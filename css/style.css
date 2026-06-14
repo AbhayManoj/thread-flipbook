@@ -301,3 +301,31 @@ body {
     font-size: 21px;
   }
 }
+
+/* Driver.js custom styling */
+.driver-popover {
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.driver-popover-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.driver-popover-description {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.driver-popover-footer button {
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tour-btn {
+  font-size: 22px;
+  font-weight: 700;
+}
