@@ -63,10 +63,7 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
-/*
-  Main book area:
-  This area is explicitly between the top bar and bottom icons.
-*/
+/* Main book area */
 .book-area {
   position: absolute;
   z-index: 2;
@@ -120,11 +117,6 @@ body {
   transition: transform 80ms linear;
   will-change: transform;
 
-  /*
-    Important mobile fix:
-    Prevent browser/native gestures from competing with our custom
-    pinch zoom handling.
-  */
   touch-action: none;
 }
 
@@ -243,6 +235,218 @@ body {
   transform: scale(1.08);
 }
 
+/* Slide-out table of contents */
+.toc-toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+
+  z-index: 45;
+
+  width: 34px;
+  height: 86px;
+
+  border: none;
+  border-radius: 0 18px 18px 0;
+
+  background: #2db4e5;
+  color: white;
+
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  transition: left 0.28s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.toc-toggle:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+
+.toc-toggle.is-open {
+  left: 320px;
+}
+
+.toc-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  z-index: 44;
+
+  width: 320px;
+  max-width: 84vw;
+  height: 100vh;
+
+  padding: 22px 18px 24px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(4, 39, 83, 0.98),
+      rgba(3, 25, 58, 0.98)
+    );
+
+  color: white;
+
+  transform: translateX(-100%);
+  transition: transform 0.28s ease;
+
+  box-shadow: 12px 0 36px rgba(0, 0, 0, 0.34);
+
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* Hide scrollbar but keep scrolling */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.toc-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.toc-panel.is-open {
+  transform: translateX(0);
+}
+
+.toc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding-bottom: 16px;
+  margin-bottom: 14px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.toc-label {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #2db4e5;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.toc-header h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.toc-close {
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toc-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toc-item {
+  width: 100%;
+
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 10px;
+
+  padding: 12px 12px 12px 13px;
+
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+
+  cursor: pointer;
+  text-align: left;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.toc-item span {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+
+.toc-item em {
+  flex: 0 0 auto;
+
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.toc-item:hover {
+  background: rgba(45, 180, 229, 0.18);
+  border-left-color: #2db4e5;
+  transform: translateX(3px);
+}
+
+.toc-item.is-active {
+  background: rgba(45, 180, 229, 0.24);
+  border-left-color: #2db4e5;
+}
+
+.toc-backdrop {
+  position: absolute;
+  inset: 0;
+
+  z-index: 43;
+
+  background: rgba(0, 0, 0, 0.22);
+
+  opacity: 0;
+  pointer-events: none;
+
+  transition: opacity 0.28s ease;
+}
+
+.toc-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
 /* Mobile: one-page flipbook */
 @media (max-width: 768px) {
   html,
@@ -308,6 +512,33 @@ body {
     width: 30px;
     height: 30px;
     font-size: 21px;
+  }
+
+  .toc-toggle {
+    width: 30px;
+    height: 74px;
+    font-size: 22px;
+  }
+
+  .toc-toggle.is-open {
+    left: min(320px, 84vw);
+  }
+
+  .toc-panel {
+    width: min(320px, 84vw);
+    padding: 18px 14px 20px;
+  }
+
+  .toc-header h2 {
+    font-size: 22px;
+  }
+
+  .toc-item {
+    padding: 11px 10px;
+  }
+
+  .toc-item span {
+    font-size: 12px;
   }
 }
 
