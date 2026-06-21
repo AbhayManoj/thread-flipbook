@@ -11,6 +11,12 @@ const soundBtn = document.getElementById("soundBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 
+const tocToggle = document.getElementById("tocToggle");
+const tocPanel = document.getElementById("tocPanel");
+const tocClose = document.getElementById("tocClose");
+const tocBackdrop = document.getElementById("tocBackdrop");
+const tocItems = document.querySelectorAll(".toc-item");
+
 const pageFlipAudio = new Audio("assets/page-flip.mp3");
 pageFlipAudio.preload = "auto";
 pageFlipAudio.volume = 0.45;
@@ -19,11 +25,6 @@ let soundEnabled = true;
 let suppressFlipSound = false;
 let audioUnlocked = false;
 
-/*
-  Base portrait page size.
-  Desktop: two-page spread.
-  Mobile: one-page flip.
-*/
 const BASE_PAGE_WIDTH = 390;
 const BASE_PAGE_HEIGHT = 550;
 
@@ -35,23 +36,14 @@ let currentPageHeight = BASE_PAGE_HEIGHT;
 
 let resizeTimer = null;
 
-/*
-  Smooth visual zoom.
-*/
 let visualZoom = 1;
 let zoomPanX = 0;
 let zoomPanY = 0;
 
-/*
-  Drag-to-pan state.
-*/
 let isPanningZoomedBook = false;
 let lastPanClientX = 0;
 let lastPanClientY = 0;
 
-/*
-  Mobile pinch zoom state.
-*/
 let isMobilePinching = false;
 let initialPinchDistance = 0;
 let initialPinchZoom = 1;
@@ -156,7 +148,7 @@ function playPageFlipSound() {
   pageFlipAudio.volume = 0.45;
 
   pageFlipAudio.play().catch(() => {
-    // Browser may block sound until user interacts with the page.
+    // Browser may block sound until user interacts.
   });
 }
 
@@ -198,20 +190,9 @@ function buildFlipbook(targetPageIndex = 0) {
     height: currentPageHeight,
     size: "fixed",
 
-    /*
-      Desktop:
-      showCover true + usePortrait false = two-page spread.
-
-      Mobile:
-      showCover false + usePortrait true = one-page flip.
-    */
     showCover: !isMobile,
     usePortrait: isMobile,
 
-    /*
-      Keep native PageFlip enabled.
-      Strong document-level touch capture below handles mobile pinch.
-    */
     useMouseEvents: true,
 
     mobileScrollSupport: false,
@@ -226,6 +207,7 @@ function buildFlipbook(targetPageIndex = 0) {
   pageFlip.on("flip", () => {
     updatePageCounter();
     syncBookLayout();
+    highlightActiveTocItem();
     playPageFlipSound();
   });
 
@@ -239,6 +221,7 @@ function buildFlipbook(targetPageIndex = 0) {
     updatePageCounter();
     syncBookLayout();
     applyVisualZoom();
+    highlightActiveTocItem();
 
     setTimeout(() => {
       suppressFlipSound = false;
@@ -266,6 +249,88 @@ function updatePageCounter() {
   } else {
     pageCounter.textContent = `pages ${leftPage} - ${rightPage} of ${totalPages}`;
   }
+}
+
+/* Slide-out contents navigation */
+function openToc() {
+  if (!tocPanel || !tocToggle || !tocBackdrop) return;
+
+  tocPanel.classList.add("is-open");
+  tocToggle.classList.add("is-open");
+  tocBackdrop.classList.add("is-open");
+
+  tocToggle.textContent = "❮";
+  tocToggle.setAttribute("aria-label", "Close contents");
+}
+
+function closeToc() {
+  if (!tocPanel || !tocToggle || !tocBackdrop) return;
+
+  tocPanel.classList.remove("is-open");
+  tocToggle.classList.remove("is-open");
+  tocBackdrop.classList.remove("is-open");
+
+  tocToggle.textContent = "❯";
+  tocToggle.setAttribute("aria-label", "Open contents");
+}
+
+function toggleToc() {
+  if (!tocPanel) return;
+
+  if (tocPanel.classList.contains("is-open")) {
+    closeToc();
+  } else {
+    openToc();
+  }
+}
+
+function goToMagazinePage(pageNumber) {
+  if (!pageFlip) return;
+
+  const pageIndex = Math.max(
+    0,
+    Math.min(pageNumber - 1, magazinePages.length - 1)
+  );
+
+  resetVisualZoom();
+
+  suppressFlipSound = true;
+
+  if (typeof pageFlip.turnToPage === "function") {
+    pageFlip.turnToPage(pageIndex);
+  }
+
+  setTimeout(() => {
+    updatePageCounter();
+    syncBookLayout();
+    highlightActiveTocItem();
+    suppressFlipSound = false;
+  }, 250);
+
+  closeToc();
+}
+
+function highlightActiveTocItem() {
+  if (!pageFlip || !tocItems || tocItems.length === 0) return;
+
+  const isMobile = isMobileView();
+  const currentPageNumber = pageFlip.getCurrentPageIndex() + 1;
+
+  const visiblePages = new Set([currentPageNumber]);
+
+  if (!isMobile && currentPageNumber > 1) {
+    visiblePages.add(Math.min(currentPageNumber + 1, magazinePages.length));
+  }
+
+  tocItems.forEach((item) => {
+    const targetPage = Number(item.dataset.page);
+
+    if (visiblePages.has(targetPage)) {
+      item.classList.add("is-active");
+    } else {
+      item.classList.remove("is-active");
+    }
+  });
 }
 
 function syncBookLayout() {
@@ -469,6 +534,52 @@ nextBtn.addEventListener("click", () => {
 });
 
 /*
+  Keyboard page navigation.
+  Left Arrow  = previous page
+  Right Arrow = next page
+*/
+document.addEventListener("keydown", (event) => {
+  if (!pageFlip) return;
+
+  const isTourOpen = !!document.querySelector(".driver-popover");
+  if (isTourOpen) return;
+
+  const isTocOpen = tocPanel && tocPanel.classList.contains("is-open");
+
+  if (event.key === "Escape" && isTocOpen) {
+    event.preventDefault();
+    closeToc();
+    return;
+  }
+
+  if (isTocOpen) return;
+
+  const activeElement = document.activeElement;
+  const isTyping =
+    activeElement &&
+    (
+      activeElement.tagName === "INPUT" ||
+      activeElement.tagName === "TEXTAREA" ||
+      activeElement.tagName === "SELECT" ||
+      activeElement.isContentEditable
+    );
+
+  if (isTyping) return;
+
+  if (event.repeat) return;
+
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    pageFlip.flipNext();
+  }
+
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    pageFlip.flipPrev();
+  }
+});
+
+/*
   Zoom button:
   Desktop fullscreen: toggles centered zoom.
   Mobile: toggles centered zoom too.
@@ -610,9 +721,6 @@ document.addEventListener(
 
     const touchedInsideBook = didTouchStartInsideBook(event);
 
-    /*
-      Two-finger touch should always zoom, never flip.
-    */
     if (event.touches.length >= 2 && touchedInsideBook) {
       stopMobileTouchEvent(event);
 
@@ -630,9 +738,6 @@ document.addEventListener(
       return;
     }
 
-    /*
-      When zoomed in, one-finger touch should pan, not flip.
-    */
     if (event.touches.length === 1 && touchedInsideBook && isZoomPanActive()) {
       stopMobileTouchEvent(event);
 
@@ -655,10 +760,6 @@ document.addEventListener(
   (event) => {
     if (!isMobileView()) return;
 
-    /*
-      If the gesture started on the book and now has 2 fingers,
-      force it to be pinch zoom.
-    */
     if (
       (mobileGestureStartedOnBook || didTouchStartInsideBook(event)) &&
       event.touches.length >= 2
@@ -689,9 +790,6 @@ document.addEventListener(
       return;
     }
 
-    /*
-      If zoomed in, one-finger movement should pan.
-    */
     if (isPanningZoomedBook && event.touches.length === 1 && isZoomPanActive()) {
       stopMobileTouchEvent(event);
 
@@ -730,10 +828,6 @@ document.addEventListener(
       stopZoomPan();
     }
 
-    /*
-      If pinch ends with one finger still on screen and zoom is active,
-      continue panning with that remaining finger.
-    */
     if (event.touches.length === 1 && isZoomPanActive()) {
       mobileGestureStartedOnBook = true;
       isPanningZoomedBook = true;
@@ -765,6 +859,35 @@ document.addEventListener(
   { passive: false, capture: true }
 );
 
+/* Slide-out contents navigation */
+if (tocToggle) {
+  tocToggle.addEventListener("click", () => {
+    toggleToc();
+  });
+}
+
+if (tocClose) {
+  tocClose.addEventListener("click", () => {
+    closeToc();
+  });
+}
+
+if (tocBackdrop) {
+  tocBackdrop.addEventListener("click", () => {
+    closeToc();
+  });
+}
+
+tocItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    const pageNumber = Number(item.dataset.page);
+
+    if (!Number.isNaN(pageNumber)) {
+      goToMagazinePage(pageNumber);
+    }
+  });
+});
+
 /* Rebuild on resize/orientation change only after the user stops resizing */
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
@@ -778,6 +901,7 @@ window.addEventListener("resize", () => {
     mobileGestureStartedOnBook = false;
     stopZoomPan();
     stopMobilePinch();
+    closeToc();
 
     buildFlipbook(targetPageIndex);
   }, 300);
@@ -806,6 +930,8 @@ function startUserTour() {
     console.warn("Driver.js was not loaded.");
     return;
   }
+
+  closeToc();
 
   const driverObj = driverFunction({
     showProgress: true,
@@ -838,10 +964,19 @@ function startUserTour() {
         }
       },
       {
+        element: "#tocToggle",
+        popover: {
+          title: "Contents Navigation",
+          description: "Open the contents panel and jump directly to any section of the magazine.",
+          side: "right",
+          align: "center"
+        }
+      },
+      {
         element: "#prevBtn",
         popover: {
           title: "Previous Page",
-          description: "Use this arrow to go back to the previous page.",
+          description: "Use this arrow or the left keyboard arrow to go back.",
           side: "right",
           align: "center"
         }
@@ -850,7 +985,7 @@ function startUserTour() {
         element: "#nextBtn",
         popover: {
           title: "Next Page",
-          description: "Use this arrow to move forward through the magazine.",
+          description: "Use this arrow or the right keyboard arrow to move forward.",
           side: "left",
           align: "center"
         }
@@ -886,7 +1021,7 @@ function startUserTour() {
         element: "#tourBtn",
         popover: {
           title: "Guide",
-          description: "You can click this button anytime to replay this quick guide.",
+          description: "Click this button anytime to replay this quick guide.",
           side: "top",
           align: "center"
         }
@@ -922,3 +1057,7 @@ window.addEventListener("load", () => {
 /* Initial setup */
 buildFlipbook(0);
 updateSoundButton();
+
+setTimeout(() => {
+  highlightActiveTocItem();
+}, 300);
