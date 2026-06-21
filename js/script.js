@@ -10,6 +10,7 @@ const zoomBtn = document.getElementById("zoomBtn");
 const soundBtn = document.getElementById("soundBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const PLAY_BUTTON_URL = "https://example.com";
 
 const tocToggle = document.getElementById("tocToggle");
 const tocPanel = document.getElementById("tocPanel");
@@ -64,14 +65,45 @@ function recreateBookContainer() {
 
 function createPageElements() {
   magazinePages.forEach((pageSrc, index) => {
+    const pageNumber = index + 1;
+
     const page = document.createElement("div");
     page.className = "page";
 
     const img = document.createElement("img");
     img.src = pageSrc;
-    img.alt = `Page ${index + 1}`;
+    img.alt = `Page ${pageNumber}`;
 
     page.appendChild(img);
+
+    /*
+      Add Play button only on page 28.
+    */
+    if (pageNumber === 26) {
+      const playButton = document.createElement("button");
+      playButton.className = "page-play-button";
+      playButton.type = "button";
+      playButton.textContent = "Play";
+      playButton.setAttribute("aria-label", "Play");
+
+      playButton.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+
+      playButton.addEventListener("touchstart", (event) => {
+        event.stopPropagation();
+      }, { passive: true });
+
+      playButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        window.open(PLAY_BUTTON_URL, "_blank", "noopener,noreferrer");
+      });
+
+      page.appendChild(playButton);
+    }
+
     bookElement.appendChild(page);
   });
 }
