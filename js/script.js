@@ -54,6 +54,13 @@ function isMobileView() {
   return window.matchMedia("(max-width: 768px)").matches;
 }
 
+// Determine whether to use portrait (single-page) mode based on available width
+function shouldUsePortrait() {
+  if (isMobileView()) return true;
+  const availableWidth = window.innerWidth - 110; // same margin as getLayoutScale
+  return availableWidth < BASE_PAGE_WIDTH * 2;    // not enough room for a two‑page spread
+}
+
 function recreateBookContainer() {
   bookShell.innerHTML = "";
 
@@ -145,7 +152,7 @@ function getLayoutScale() {
       availableHeight / BASE_PAGE_HEIGHT
     );
 
-    scale = Math.min(scale, 1);
+    scale = Math.min(scale, 3);      // your increased cap
     scale = Math.max(scale, 0.55);
   }
 
@@ -192,7 +199,7 @@ function updateSoundButton() {
 document.addEventListener("pointerdown", unlockAudio, { once: true });
 
 function buildFlipbook(targetPageIndex = 0) {
-  const isMobile = isMobileView();
+  const portraitMode = shouldUsePortrait();
 
   const safePageIndex = Math.max(
     0,
@@ -222,16 +229,16 @@ function buildFlipbook(targetPageIndex = 0) {
     height: currentPageHeight,
     size: "fixed",
 
-    showCover: !isMobile,
-    usePortrait: isMobile,
+    showCover: !portraitMode,
+    usePortrait: portraitMode,
 
     useMouseEvents: true,
 
     mobileScrollSupport: false,
     drawShadow: true,
-    flippingTime: isMobile ? 650 : 700,
-    autoSize: true,
-    maxShadowOpacity: isMobile ? 0.35 : 0.5
+    flippingTime: portraitMode ? 650 : 700,
+    autoSize: false,               // we control sizing manually
+    maxShadowOpacity: portraitMode ? 0.35 : 0.5
   });
 
   pageFlip.loadFromHTML(document.querySelectorAll("#book .page"));
@@ -264,11 +271,11 @@ function buildFlipbook(targetPageIndex = 0) {
 function updatePageCounter() {
   if (!pageFlip) return;
 
-  const isMobile = isMobileView();
+  const portraitMode = shouldUsePortrait();
   const currentPage = pageFlip.getCurrentPageIndex() + 1;
   const totalPages = magazinePages.length;
 
-  if (isMobile || currentPage === 1) {
+  if (portraitMode || currentPage === 1) {
     pageCounter.textContent = `page ${currentPage} of ${totalPages}`;
     return;
   }
@@ -345,12 +352,12 @@ function goToMagazinePage(pageNumber) {
 function highlightActiveTocItem() {
   if (!pageFlip || !tocItems || tocItems.length === 0) return;
 
-  const isMobile = isMobileView();
+  const portraitMode = shouldUsePortrait();
   const currentPageNumber = pageFlip.getCurrentPageIndex() + 1;
 
   const visiblePages = new Set([currentPageNumber]);
 
-  if (!isMobile && currentPageNumber > 1) {
+  if (!portraitMode && currentPageNumber > 1) {
     visiblePages.add(Math.min(currentPageNumber + 1, magazinePages.length));
   }
 
@@ -368,13 +375,13 @@ function highlightActiveTocItem() {
 function syncBookLayout() {
   if (!pageFlip) return;
 
-  const isMobile = isMobileView();
+  const portraitMode = shouldUsePortrait();
   const currentPageIndex = pageFlip.getCurrentPageIndex();
   const isFullscreen = !!document.fullscreenElement;
 
-  const isDesktopSpread = !isMobile && currentPageIndex > 0;
+  const isDesktopSpread = !portraitMode && currentPageIndex > 0;
 
-  const bookShiftX = isMobile
+  const bookShiftX = portraitMode
     ? 0
     : isDesktopSpread
       ? 0
@@ -382,7 +389,7 @@ function syncBookLayout() {
 
   bookShell.style.setProperty("--book-shift-x", `${bookShiftX}px`);
 
-  if (isMobile) {
+  if (portraitMode) {
     document.documentElement.style.setProperty("--left-arrow-x", "24px");
     document.documentElement.style.setProperty(
       "--right-arrow-x",
@@ -414,9 +421,9 @@ function clampValue(value, min, max) {
 function getVisibleBookWidth() {
   if (!pageFlip) return currentPageWidth;
 
-  const isMobile = isMobileView();
+  const portraitMode = shouldUsePortrait();
   const currentPageIndex = pageFlip.getCurrentPageIndex();
-  const isDesktopSpread = !isMobile && currentPageIndex > 0;
+  const isDesktopSpread = !portraitMode && currentPageIndex > 0;
 
   return isDesktopSpread ? currentPageWidth * 2 : currentPageWidth;
 }
