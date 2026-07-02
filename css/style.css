@@ -271,6 +271,14 @@ body {
   transform: scale(1.08);
 }
 
+.icon-btn.is-hidden {
+  display: none;
+}
+
+#zoomOutBtn {
+  font-size: 30px;
+  font-weight: 700;
+}
 /* Slide-out table of contents */
 .toc-toggle {
   position: absolute;

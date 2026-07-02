@@ -7,6 +7,7 @@ const bookShell = document.getElementById("bookShell");
 const pageCounter = document.getElementById("pageCounter");
 const fullscreenBtn = document.getElementById("fullscreenBtn");
 const zoomBtn = document.getElementById("zoomBtn");
+const zoomOutBtn = document.getElementById("zoomOutBtn");
 const soundBtn = document.getElementById("soundBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
@@ -17,6 +18,14 @@ const tocPanel = document.getElementById("tocPanel");
 const tocClose = document.getElementById("tocClose");
 const tocBackdrop = document.getElementById("tocBackdrop");
 const tocItems = document.querySelectorAll(".toc-item");
+
+const TOC_TOGGLE_POSITION_KEY = "threadTocToggleTopV3";
+
+let isDraggingTocToggle = false;
+let tocDragStartY = 0;
+let tocDragStartTop = 0;
+let tocDragMoved = false;
+let ignoreNextTocToggleClick = false;
 
 const pageFlipAudio = new Audio("assets/page-flip.mp3");
 pageFlipAudio.preload = "auto";
@@ -41,6 +50,10 @@ let visualZoom = 1;
 let zoomPanX = 0;
 let zoomPanY = 0;
 
+const ZOOM_STEP = 1.22;
+const MAX_VISUAL_ZOOM = 3;
+const MIN_VISUAL_ZOOM = 1;
+
 let isPanningZoomedBook = false;
 let lastPanClientX = 0;
 let lastPanClientY = 0;
@@ -58,7 +71,7 @@ function isMobileView() {
 function shouldUsePortrait() {
   if (isMobileView()) return true;
   const availableWidth = window.innerWidth - 110; // same margin as getLayoutScale
-  return availableWidth < BASE_PAGE_WIDTH * 2;    // not enough room for a two‑page spread
+  return availableWidth < BASE_PAGE_WIDTH * 2;    // not enough room for a two-page spread
 }
 
 function recreateBookContainer() {
@@ -323,6 +336,129 @@ function toggleToc() {
   }
 }
 
+function prepareTocToggleDragStyles() {
+  if (!tocToggle) return;
+
+  tocToggle.style.touchAction = "none";
+  tocToggle.style.userSelect = "none";
+  tocToggle.style.cursor = "grab";
+}
+
+function getTocToggleCenterY() {
+  if (!tocToggle) return window.innerHeight / 2;
+
+  const rect = tocToggle.getBoundingClientRect();
+  return rect.top + rect.height / 2;
+}
+
+function clampTocToggleCenterY(centerY) {
+  if (!tocToggle) return centerY;
+
+  const toggleHeight = tocToggle.offsetHeight || 86;
+  const edgeGap = 14;
+
+  const minY = toggleHeight / 2 + edgeGap;
+  const maxY = window.innerHeight - toggleHeight / 2 - edgeGap;
+
+  return clampValue(centerY, minY, maxY);
+}
+
+function setTocToggleCenterY(centerY, shouldSave = true) {
+  if (!tocToggle) return;
+
+  const safeY = clampTocToggleCenterY(centerY);
+
+  tocToggle.style.top = `${safeY}px`;
+  tocToggle.style.transform = "translateY(-50%)";
+
+  if (shouldSave) {
+    localStorage.setItem(TOC_TOGGLE_POSITION_KEY, String(safeY));
+  }
+}
+
+function loadTocTogglePosition() {
+  if (!tocToggle) return;
+
+  prepareTocToggleDragStyles();
+
+  const savedTop = Number(localStorage.getItem(TOC_TOGGLE_POSITION_KEY));
+
+  /*
+    Default position should always be center unless the user has dragged it.
+  */
+  if (Number.isFinite(savedTop)) {
+    setTocToggleCenterY(savedTop, false);
+  } else {
+    requestAnimationFrame(() => {
+      setTocToggleCenterY(window.innerHeight / 2, false);
+    });
+  }
+}
+
+function startDraggingTocToggle(event) {
+  if (!tocToggle) return;
+
+  if (event.button !== undefined && event.button !== 0) return;
+
+  isDraggingTocToggle = true;
+  tocDragMoved = false;
+  tocDragStartY = event.clientY;
+  tocDragStartTop = getTocToggleCenterY();
+
+  tocToggle.style.cursor = "grabbing";
+
+  if (tocToggle.setPointerCapture) {
+    try {
+      tocToggle.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // Ignore pointer capture errors.
+    }
+  }
+
+  event.preventDefault();
+}
+
+function moveDraggingTocToggle(event) {
+  if (!isDraggingTocToggle) return;
+
+  const deltaY = event.clientY - tocDragStartY;
+
+  if (Math.abs(deltaY) > 4) {
+    tocDragMoved = true;
+  }
+
+  setTocToggleCenterY(tocDragStartTop + deltaY, false);
+
+  event.preventDefault();
+}
+
+function stopDraggingTocToggle(event) {
+  if (!isDraggingTocToggle) return;
+
+  isDraggingTocToggle = false;
+
+  if (tocToggle) {
+    tocToggle.style.cursor = "grab";
+
+    if (tocDragMoved) {
+      setTocToggleCenterY(getTocToggleCenterY(), true);
+      ignoreNextTocToggleClick = true;
+
+      setTimeout(() => {
+        ignoreNextTocToggleClick = false;
+      }, 250);
+    }
+
+    if (tocToggle.releasePointerCapture) {
+      try {
+        tocToggle.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors.
+      }
+    }
+  }
+}
+
 function goToMagazinePage(pageNumber) {
   if (!pageFlip) return;
 
@@ -454,12 +590,12 @@ function applyVisualZoom() {
   bookElement.style.setProperty("--visual-pan-x", `${zoomPanX}px`);
   bookElement.style.setProperty("--visual-pan-y", `${zoomPanY}px`);
 
-  if (visualZoom > 1.01 && (document.fullscreenElement || isMobileView())) {
-    bookElement.classList.add("zoom-pan");
-  } else {
-    bookElement.classList.remove("zoom-pan");
-    bookElement.classList.remove("is-panning");
-  }
+if (visualZoom > 1.01) {
+  bookElement.classList.add("zoom-pan");
+} else {
+  bookElement.classList.remove("zoom-pan");
+  bookElement.classList.remove("is-panning");
+}
 
   syncBookLayout();
 }
@@ -470,15 +606,19 @@ function resetVisualZoom() {
   zoomPanY = 0;
   stopZoomPan();
   applyVisualZoom();
+  updateZoomButtons();
 }
 
 function zoomToPoint(clientX, clientY, newZoom) {
   if (!bookElement) return;
 
   const oldZoom = visualZoom;
-  const clampedZoom = clampValue(newZoom, 1, 2.4);
+  const clampedZoom = clampValue(newZoom, MIN_VISUAL_ZOOM, MAX_VISUAL_ZOOM);
 
-  if (clampedZoom === oldZoom) return;
+  if (clampedZoom === oldZoom) {
+    updateZoomButtons();
+    return;
+  }
 
   const rect = bookElement.getBoundingClientRect();
 
@@ -493,17 +633,60 @@ function zoomToPoint(clientX, clientY, newZoom) {
   visualZoom = clampedZoom;
 
   applyVisualZoom();
+  updateZoomButtons();
 }
 
 function zoomAtPoint(clientX, clientY, zoomFactor) {
   zoomToPoint(clientX, clientY, visualZoom * zoomFactor);
 }
 
+function updateZoomButtons() {
+  if (!zoomOutBtn) return;
+
+  if (visualZoom > 1.01) {
+    zoomOutBtn.classList.remove("is-hidden");
+    zoomBtn.title = "Zoom in";
+    zoomOutBtn.title = "Zoom out";
+  } else {
+    zoomOutBtn.classList.add("is-hidden");
+    zoomBtn.title = "Zoom in";
+  }
+}
+
+function zoomInOneStep() {
+  zoomAtPoint(
+    window.innerWidth / 2,
+    window.innerHeight / 2,
+    ZOOM_STEP
+  );
+}
+
+function zoomOutOneStep() {
+  if (visualZoom <= 1.01) {
+    resetVisualZoom();
+    updateZoomButtons();
+    return;
+  }
+
+  const targetZoom = visualZoom / ZOOM_STEP;
+
+  if (targetZoom <= 1.05) {
+    resetVisualZoom();
+    updateZoomButtons();
+    return;
+  }
+
+  zoomToPoint(
+    window.innerWidth / 2,
+    window.innerHeight / 2,
+    targetZoom
+  );
+}
+
 function isZoomPanActive() {
   return (
     bookElement &&
-    visualZoom > 1.01 &&
-    (document.fullscreenElement || isMobileView())
+    visualZoom > 1.01
   );
 }
 
@@ -620,20 +803,17 @@ document.addEventListener("keydown", (event) => {
 
 /*
   Zoom button:
-  Desktop fullscreen: toggles centered zoom.
-  Mobile: toggles centered zoom too.
+  Works in normal mode, fullscreen mode, and mobile mode.
 */
 zoomBtn.addEventListener("click", () => {
-  if (!isMobileView() && !document.fullscreenElement) {
-    return;
-  }
-
-  if (visualZoom === 1) {
-    zoomAtPoint(window.innerWidth / 2, window.innerHeight / 2, 1.35);
-  } else {
-    resetVisualZoom();
-  }
+  zoomInOneStep();
 });
+
+if (zoomOutBtn) {
+  zoomOutBtn.addEventListener("click", () => {
+    zoomOutOneStep();
+  });
+}
 
 /* Sound button */
 soundBtn.addEventListener("click", () => {
@@ -900,7 +1080,18 @@ document.addEventListener(
 
 /* Slide-out contents navigation */
 if (tocToggle) {
-  tocToggle.addEventListener("click", () => {
+  tocToggle.addEventListener("pointerdown", startDraggingTocToggle);
+  tocToggle.addEventListener("pointermove", moveDraggingTocToggle);
+  tocToggle.addEventListener("pointerup", stopDraggingTocToggle);
+  tocToggle.addEventListener("pointercancel", stopDraggingTocToggle);
+
+  tocToggle.addEventListener("click", (event) => {
+    if (ignoreNextTocToggleClick) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     toggleToc();
   });
 }
@@ -1006,7 +1197,7 @@ function startUserTour() {
         element: "#tocToggle",
         popover: {
           title: "Contents Navigation",
-          description: "Open the contents panel and jump directly to any section of the magazine.",
+          description: "Open the contents panel and jump directly to any section of the magazine. You can also drag this blue handle up or down.",
           side: "right",
           align: "center"
         }
@@ -1092,6 +1283,8 @@ window.addEventListener("load", () => {
     }, 900);
   }
 });
+
+loadTocTogglePosition();
 
 /* Initial setup */
 buildFlipbook(0);
